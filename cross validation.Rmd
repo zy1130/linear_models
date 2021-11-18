@@ -55,9 +55,65 @@ rmse(wiggly_mod,test_df)
 
 ```{r}
 cv_df=
-  crossv_mc(nonlin_df,100)
+  crossv_mc(nonlin_df,100)%>%
+  mutate(
+    train=map(train,as_tibble),
+    test=map(test,as_tibble)
+  )
+```
 
+```{r}
+cv_df=
+  cv_df%>%
+  mutate(
+    linear_mod=map(.x=train,~lm(y~x,data=.x)),
+    smooth_mod=map(.x=train,~gam(y~s(x),data=.x)),
+    wiggly_mod=map(.x=train,~gam(y~s(x,k=30),sp=10e-6,data=.x))
+  )%>%
+  mutate(
+    rmse_linear=map2_dbl(.x=linear_mod,.y=test,~rmse(model=.x,data=.y)),
+    rmse_smooth=map2_dbl(.x=smooth_mod,.y=test,~rmse(model=.x,data=.y)),
+    rmse_wiggly=map2_dbl(.x=wiggly_mod,.y=test,~rmse(model=.x,data=.y)),
+  )
+cv_df
+```
 
+```{r}
+cv_df%>%
+  select(.id,starts_with("rmse"))%>%
+  pivot_longer(
+    rmse_linear:rmse_wiggly,
+    names_to="model",
+    values_to="rmse",
+    names_prefix="rmse_"
+  )%>%
+  ggplot(aes(x=model,y=rmse))+
+  geom_boxplot()
+```
+
+```{r}
+child_growth_df=
+  read_csv("./data/nepalese_children.csv")
+```
+```{r}
+child_growth_df =
+  child_growth_df %>% 
+  mutate(weight_cp = (weight > 7) * (weight - 7))
+```
+
+```{r}
+child_growth_df%>%
+  ggplot(aes(x = weight, y = armc)) + 
+  geom_point(alpha = .2)
+```
+
+```{r}
+linear_mod=lm(armc~weight,data=child_growth_df)
+pwl_mod=lm(armc~weight+weight_cp,data=child_growth_df)
+smooth_mod=gam(armc~s(weight),data=child_growth_df)
+```
+
+```{r}
 
 ```
 
